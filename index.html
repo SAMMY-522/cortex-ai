@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>CORTEX</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#e8c547" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --bg: #0c0c0e; --surface: #131316; --surface2: #1c1c22;
+      --border: #2a2a34; --accent: #e8c547; --accent2: #c4a832;
+      --text: #e8e4dc; --muted: #65657a;
+      --reel: #f06292; --note: #64b5f6; --link: #81c784;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+
+    /* ── LAYOUT ── */
+    #app { display: flex; flex-direction: column; height: 100%; }
+    #screen { flex: 1; overflow-y: auto; padding: 16px 16px calc(var(--safe-bottom) + 80px); scroll-behavior: smooth; }
+    #screen::-webkit-scrollbar { display: none; }
+
+    /* ── BOTTOM NAV ── */
+    #nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(12,12,14,0.96); backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      display: flex; padding: 10px 0 calc(var(--safe-bottom) + 10px);
+      z-index: 999;
+    }
+    .nav-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+      background: none; border: none; color: var(--muted);
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer;
+      padding: 4px 0; transition: color 0.15s;
+    }
+    .nav-btn .ni { font-size: 20px; }
+    .nav-btn.active { color: var(--accent); }
+
+    /* ── HEADER ── */
+    .page-header {
+      padding: calc(var(--safe-top) + 16px) 0 8px;
+      font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800;
+    }
+    .page-header .hl { color: var(--accent); }
+
+    /* ── HOME ── */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 18px 0; }
+    .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 12px; }
+    .stat-n { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: var(--accent); }
+    .stat-l { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+    .section-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin: 20px 0 10px; }
+
+    /* ── ITEM CARD ── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px; margin-bottom: 10px;
+      animation: fadeUp 0.25s ease both;
+    }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .card-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; line-height: 1.35; flex: 1; }
+    .badge { font-size: 9px; padding: 3px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; font-weight: 500; }
+    .badge-reel { background: rgba(240,98,146,0.15); color: var(--reel); }
+    .badge-note { background: rgba(100,181,246,0.15); color: var(--note); }
+    .badge-link { background: rgba(129,199,132,0.15); color: var(--link); }
+    .card-url { font-size: 10px; color: var(--accent2); margin-bottom: 6px; word-break: break-all; opacity: 0.8; }
+    .card-body { font-size: 11px; color: var(--muted); line-height: 1.6; margin-bottom: 8px; }
+    .card-footer { display: flex; align-items: center; justify-content: space-between; }
+    .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tag { font-size: 9px; padding: 2px 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 4px; color: var(--muted); }
+    .card-date { font-size: 9px; color: var(--muted); }
+    .btn-del { background: none; border: 1px solid var(--border); color: var(--muted); font-size: 10px; padding: 3px 8px; border-radius: 5px; cursor: pointer; font-family: inherit; }
+
+    /* ── FORM ── */
+    .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+    .type-row { display: flex; gap: 8px; margin-bottom: 18px; }
+    .type-btn {
+      flex: 1; padding: 9px 4px; border-radius: 8px; border: 1px solid var(--border);
+      background: none; color: var(--muted); font-family: inherit; font-size: 11px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .type-btn.t-reel { background: rgba(240,98,146,0.1); border-color: var(--reel); color: var(--reel); }
+    .type-btn.t-note { background: rgba(100,181,246,0.1); border-color: var(--note); color: var(--note); }
+    .type-btn.t-link { background: rgba(129,199,132,0.1); border-color: var(--link); color: var(--link); }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .field input, .field textarea {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 11px 13px; color: var(--text);
+      font-family: inherit; font-size: 13px; outline: none;
+      transition: border-color 0.15s; resize: none; -webkit-appearance: none;
+    }
+    .field input:focus, .field textarea:focus { border-color: var(--accent); }
+    .field textarea { min-height: 90px; }
+    .btn-primary {
+      width: 100%; background: var(--accent); color: #0c0c0e;
+      border: none; border-radius: 10px; padding: 14px;
+      font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: all 0.15s; margin-top: 4px;
+    }
+    .btn-primary:disabled { opacity: 0.4; }
+
+    /* ── QUICK SHARE BANNER ── */
+    .share-banner {
+      background: rgba(232,197,71,0.08); border: 1px solid rgba(232,197,71,0.25);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 16px;
+      font-size: 12px; color: var(--accent); line-height: 1.5;
+    }
+
+    /* ── CHAT ── */
+    #chat-wrap { display: flex; flex-direction: column; height: calc(100vh - 140px); }
+    #chat-msgs { flex: 1; overflow-y: auto; padding: 4px 0; }
+    #chat-msgs::-webkit-scrollbar { display: none; }
+    .msg { display: flex; gap: 10px; margin-bottom: 14px; animation: fadeUp 0.2s ease; }
+    .msg-av { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; margin-top: 2px; }
+    .msg-user .msg-av { background: rgba(232,197,71,0.15); }
+    .msg-ai .msg-av { background: rgba(100,181,246,0.15); }
+    .msg-txt { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 13px; font-size: 12px; line-height: 1.65; white-space: pre-wrap; max-width: calc(100% - 36px); }
+    .msg-user .msg-txt { background: rgba(232,197,71,0.06); border-color: rgba(232,197,71,0.15); }
+    .chat-hint { text-align: center; padding: 40px 16px; color: var(--muted); font-size: 12px; line-height: 1.9; }
+    .chat-hint .ci { font-size: 32px; margin-bottom: 10px; }
+    .typing { display: flex; gap: 4px; padding: 3px 0; }
+    .typing span { width: 5px; height: 5px; background: var(--muted); border-radius: 50%; animation: bounce 1.2s infinite ease; }
+    .typing span:nth-child(2) { animation-delay: 0.15s; }
+    .typing span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes bounce { 0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-5px);opacity:1} }
+    .chat-input-row { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+    #chat-input {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 11px 13px; color: var(--text);
+      font-family: inherit; font-size: 13px; outline: none; -webkit-appearance: none;
+    }
+    #chat-input:focus { border-color: var(--accent); }
+    #chat-send { background: var(--accent); color: #0c0c0e; border: none; border-radius: 10px; padding: 0 16px; font-size: 18px; cursor: pointer; }
+    #chat-send:disabled { opacity: 0.4; }
+
+    /* ── SETTINGS ── */
+    .settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 14px; }
+    .settings-card h3 { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 14px; }
+    .api-note { font-size: 11px; color: var(--muted); line-height: 1.6; margin-top: 10px; }
+    .api-note a { color: var(--accent); }
+    .install-steps { list-style: none; counter-reset: steps; }
+    .install-steps li { counter-increment: steps; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 12px; line-height: 1.5; color: var(--text); display: flex; gap: 10px; }
+    .install-steps li:last-child { border-bottom: none; }
+    .install-steps li::before { content: counter(steps); background: var(--accent); color: #0c0c0e; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 11px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+    .tag-accent { color: var(--accent); }
+
+    /* ── EMPTY ── */
+    .empty { text-align: center; padding: 48px 16px; color: var(--muted); }
+    .empty .ei { font-size: 32px; margin-bottom: 10px; opacity: 0.4; }
+    .empty p { font-size: 12px; line-height: 1.7; }
+
+    /* ── FILTER ── */
+    .filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .filter-btn { padding: 5px 11px; border-radius: 6px; border: 1px solid var(--border); background: none; color: var(--muted); font-family: inherit; font-size: 10px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.15s; }
+    .filter-btn.active { background: rgba(232,197,71,0.1); border-color: var(--accent); color: var(--accent); }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="screen"></div>
+  <nav id="nav">
+    <button class="nav-btn active" data-view="home" onclick="goTo('home')"><span class="ni">⌂</span>Home</button>
+    <button class="nav-btn" data-view="add" onclick="goTo('add')"><span class="ni">＋</span>Save</button>
+    <button class="nav-btn" data-view="library" onclick="goTo('library')"><span class="ni">⊞</span>Library</button>
+    <button class="nav-btn" data-view="ask" onclick="goTo('ask')"><span class="ni">◎</span>Ask AI</button>
+    <button class="nav-btn" data-view="settings" onclick="goTo('settings')"><span class="ni">⚙</span>Setup</button>
+  </nav>
+</div>
+
+<script>
+// ── STATE ──
+let items = JSON.parse(localStorage.getItem('cortex_items') || '[]');
+let apiKey = localStorage.getItem('cortex_apikey') || '';
+let currentView = 'home';
+let addType = 'reel';
+let chatMessages = [];
+let chatLoading = false;
+let libFilter = 'all';
+let sharedUrl = '';
+let sharedTitle = '';
+
+// ── SAVE / DELETE ──
+function saveItems() { localStorage.setItem('cortex_items', JSON.stringify(items)); }
+
+function addItem(type, url, title, content, tags) {
+  const item = {
+    id: Date.now().toString(),
+    type, url: url.trim(), title: title.trim(),
+    content: content.trim(),
+    tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+    createdAt: Date.now()
+  };
+  items.unshift(item);
+  saveItems();
+  return item;
+}
+
+function deleteItem(id) {
+  items = items.filter(i => i.id !== id);
+  saveItems();
+  render();
+}
+
+// ── ROUTING ──
+function goTo(view) {
+  currentView = view;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  render();
+}
+
+// ── RENDER ──
+function render() {
+  const s = document.getElementById('screen');
+  if (currentView === 'home') s.innerHTML = renderHome();
+  else if (currentView === 'add') s.innerHTML = renderAdd();
+  else if (currentView === 'library') s.innerHTML = renderLibrary();
+  else if (currentView === 'ask') { s.innerHTML = renderAsk(); scrollChat(); }
+  else if (currentView === 'settings') s.innerHTML = renderSettings();
+}
+
+function fmtDate(ts) {
+  return new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' });
+}
+
+function itemCardHTML(item) {
+  const tags = item.tags.map(t => `<span class="tag">${t}</span>`).join('');
+  return `
+  <div class="card">
+    <div class="card-top">
+      <div class="card-title">${escHtml(item.title)}</div>
+      <span class="badge badge-${item.type}">${item.type}</span>
+    </div>
+    ${item.url ? `<div class="card-url">🔗 ${escHtml(item.url)}</div>` : ''}
+    <div class="card-body">${escHtml(item.content)}</div>
+    <div class="card-footer">
+      <div class="tags">${tags}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="card-date">${fmtDate(item.createdAt)}</span>
+        <button class="btn-del" onclick="deleteItem('${item.id}')">✕</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── HOME ──
+function renderHome() {
+  const reels = items.filter(i => i.type === 'reel').length;
+  const notes = items.filter(i => i.type === 'note').length;
+  const recent = items.slice(0, 3);
+  return `
+  <div class="page-header">Your <span class="hl">Brain.</span></div>
+  <div class="stats">
+    <div class="stat"><div class="stat-n">${items.length}</div><div class="stat-l">Total</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--reel)">${reels}</div><div class="stat-l">Reels</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--note)">${notes}</div><div class="stat-l">Notes</div></div>
+  </div>
+  ${!apiKey ? `<div class="share-banner">⚠️ Set your Claude API key in <b>Setup</b> tab to enable Ask AI.</div>` : ''}
+  ${recent.length ? `<div class="section-label">Recently saved</div>${recent.map(itemCardHTML).join('')}` : `
+  <div class="empty">
+    <div class="ei">🧠</div>
+    <p>Your second brain is empty.<br>Hit <b style="color:var(--accent)">Save</b> to add your first reel or note.</p>
+  </div>`}`;
+}
+
+// ── ADD ──
+function renderAdd() {
+  const types = ['reel','note','link'];
+  const typeBtns = types.map(t =>
+    `<button class="type-btn ${addType===t?'t-'+t:''}" onclick="setType('${t}')">${t==='reel'?'🎬 Reel':t==='note'?'📝 Note':'🔗 Link'}</button>`
+  ).join('');
+  const sharedBanner = sharedUrl ? `<div class="share-banner">📲 Shared from another app — URL pre-filled below!</div>` : '';
+  return `
+  <div class="page-header" style="margin-bottom:14px">Save to <span class="hl">Brain</span></div>
+  ${sharedBanner}
+  <div class="form-card">
+    <div class="type-row">${typeBtns}</div>
+    ${addType !== 'note' ? `
+    <div class="field">
+      <label>URL / Link</label>
+      <input id="f-url" type="url" placeholder="https://..." value="${escHtml(sharedUrl)}" />
+    </div>` : ''}
+    <div class="field">
+      <label>Title *</label>
+      <input id="f-title" type="text" placeholder="${addType==='reel'?'What is this reel about?':'Title'}" value="${escHtml(sharedTitle)}" />
+    </div>
+    <div class="field">
+      <label>${addType==='reel'?'What did you learn from this reel? *':'Content *'}</label>
+      <textarea id="f-content" placeholder="${addType==='reel'?'Key tips, techniques, knowledge from this reel...':'Write your note here...'}" rows="4"></textarea>
+    </div>
+    <div class="field">
+      <label>Tags (comma separated)</label>
+      <input id="f-tags" type="text" placeholder="gym, technique, react" />
+    </div>
+    <button class="btn-primary" onclick="submitAdd()">Save to Brain →</button>
+  </div>`;
+}
+
+function setType(t) { addType = t; render(); }
+
+function submitAdd() {
+  const url = document.getElementById('f-url')?.value || '';
+  const title = document.getElementById('f-title')?.value || '';
+  const content = document.getElementById('f-content')?.value || '';
+  const tags = document.getElementById('f-tags')?.value || '';
+  if (!title.trim() || !content.trim()) { alert('Title and content are required.'); return; }
+  addItem(addType, url, title, content, tags);
+  sharedUrl = ''; sharedTitle = '';
+  goTo('library');
+}
+
+// ── LIBRARY ──
+function renderLibrary() {
+  const counts = { all: items.length, reel: items.filter(i=>i.type==='reel').length, note: items.filter(i=>i.type==='note').length, link: items.filter(i=>i.type==='link').length };
+  const filtered = libFilter === 'all' ? items : items.filter(i => i.type === libFilter);
+  const filterBtns = ['all','reel','note','link'].map(f =>
+    `<button class="filter-btn ${libFilter===f?'active':''}" onclick="setFilter('${f}')">${f}${f!=='all'?` (${counts[f]})`:''}</button>`
+  ).join('');
+  return `
+  <div class="page-header" style="margin-bottom:14px">Library</div>
+  <div class="filter-row">${filterBtns}</div>
+  ${filtered.length ? filtered.map(itemCardHTML).join('') : `
+  <div class="empty"><div class="ei">📭</div><p>No ${libFilter!=='all'?libFilter+'s':' items'} yet.</p></div>`}`;
+}
+
+function setFilter(f) { libFilter = f; render(); }
+
+// ── ASK ──
+function renderAsk() {
+  const msgs = chatMessages.map(m => `
+  <div class="msg msg-${m.role==='user'?'user':'ai'}">
+    <div class="msg-av">${m.role==='user'?'👤':'🤖'}</div>
+    <div class="msg-txt">${escHtml(m.content)}</div>
+  </div>`).join('');
+  const loadingDot = chatLoading ? `
+  <div class="msg msg-ai">
+    <div class="msg-av">🤖</div>
+    <div class="msg-txt"><div class="typing"><span></span><span></span><span></span></div></div>
+  </div>` : '';
+  const hint = chatMessages.length === 0 ? `
+  <div class="chat-hint">
+    <div class="ci">🤖</div>
+    Ask anything about your saved reels and notes.<br>
+    <span class="tag-accent">"What reels did I save about fitness?"</span><br>
+    <span class="tag-accent">"Summarise everything I know about X"</span>
+  </div>` : '';
+  return `
+  <div id="chat-wrap">
+    <div class="page-header" style="margin-bottom:8px">Ask <span class="hl">AI</span></div>
+    <div id="chat-msgs">${hint}${msgs}${loadingDot}<div id="chat-end"></div></div>
+    <div class="chat-input-row">
+      <input id="chat-input" placeholder="${items.length?'Ask about your saved knowledge...':'Save some items first!'}" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}" />
+      <button id="chat-send" onclick="sendChat()" ${chatLoading?'disabled':''}>↑</button>
+    </div>
+  </div>`;
+}
+
+function scrollChat() {
+  setTimeout(() => { const el = document.getElementById('chat-end'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 50);
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const q = input?.value?.trim();
+  if (!q || chatLoading) return;
+  if (!apiKey) { alert('Add your Claude API key in the Setup tab first.'); return; }
+  input.value = '';
+  chatMessages.push({ role: 'user', content: q });
+  chatLoading = true;
+  render();
+  scrollChat();
+
+  const context = items.length
+    ? items.map(it => `TYPE: ${it.type.toUpperCase()} | TITLE: "${it.title}"${it.url?` | URL: ${it.url}`:''}\nDESCRIPTION: ${it.content}\nTAGS: ${it.tags.join(', ')||'none'}`).join('\n\n---\n\n')
+    : 'No items saved yet.';
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `You are CORTEX, a personal second brain assistant. The user's saved knowledge:\n\n${context}\n\nAnswer based on these saved items. Be concise and reference item titles when relevant.`,
+        messages: chatMessages.map(m => ({ role: m.role, content: m.content }))
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || 'Could not get a response.';
+    chatMessages.push({ role: 'assistant', content: reply });
+  } catch {
+    chatMessages.push({ role: 'assistant', content: 'Connection error. Check your API key in Setup.' });
+  }
+  chatLoading = false;
+  render();
+  scrollChat();
+}
+
+// ── SETTINGS ──
+function renderSettings() {
+  return `
+  <div class="page-header" style="margin-bottom:14px">Setup</div>
+
+  <div class="settings-card">
+    <h3>🔑 Claude API Key</h3>
+    <div class="field">
+      <label>Your API Key</label>
+      <input id="s-apikey" type="password" placeholder="sk-ant-..." value="${escHtml(apiKey)}" />
+    </div>
+    <button class="btn-primary" onclick="saveApiKey()">Save API Key</button>
+    <div class="api-note">
+      Get a free key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
+      Your key is stored only on your device, never sent anywhere except Anthropic's API.
+    </div>
+  </div>
+
+  <div class="settings-card">
+    <h3>📲 Add to Home Screen</h3>
+    <ol class="install-steps">
+      <li><span>Open this app in <b>Chrome</b> on Android</span></li>
+      <li><span>Tap the <b>3-dot menu</b> (top right)</span></li>
+      <li><span>Tap <b>"Add to Home Screen"</b></span></li>
+      <li><span>Tap <b>"Add"</b> — CORTEX appears on your home screen like an app</span></li>
+    </ol>
+  </div>
+
+  <div class="settings-card">
+    <h3>🔗 Share Reels Directly to CORTEX</h3>
+    <ol class="install-steps">
+      <li><span>Install CORTEX on your home screen (steps above)</span></li>
+      <li><span>Open any reel on Instagram or YouTube</span></li>
+      <li><span>Tap <b>Share → More</b> and select <b>CORTEX</b></span></li>
+      <li><span>The URL auto-fills in the Save form — just add your notes!</span></li>
+    </ol>
+    <div class="api-note" style="margin-top:10px;color:var(--accent)">⚡ Share sheet only works after installing to home screen.</div>
+  </div>
+
+  <div class="settings-card">
+    <h3>🗑️ Data</h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">You have <b style="color:var(--text)">${items.length} items</b> saved locally on this device.</div>
+    <button class="btn-primary" style="background:#ef5350;font-size:13px" onclick="clearAll()">Clear All Data</button>
+  </div>`;
+}
+
+function saveApiKey() {
+  apiKey = document.getElementById('s-apikey')?.value?.trim() || '';
+  localStorage.setItem('cortex_apikey', apiKey);
+  alert(apiKey ? '✅ API key saved!' : 'API key cleared.');
+}
+
+function clearAll() {
+  if (confirm('Delete all saved items? This cannot be undone.')) {
+    items = []; saveItems(); render();
+  }
+}
+
+// ── SHARE TARGET HANDLER ──
+function handleShareTarget() {
+  const params = new URLSearchParams(window.location.search);
+  const url = params.get('url') || '';
+  const text = params.get('text') || '';
+  const title = params.get('title') || '';
+  if (url || text) {
+    sharedUrl = url || text;
+    sharedTitle = title || '';
+    addType = 'reel';
+    window.history.replaceState({}, '', '/');
+    goTo('add');
+  }
+}
+
+// ── UTILS ──
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── INIT ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+handleShareTarget();
+render();
+</script>
+</body>
+</html>
